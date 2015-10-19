@@ -1,16 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FileMerger
 {
-    public class FileChunk<TKey> : IDisposable
+    internal class FileChunk<TKey> : IDisposable
     {
-        private readonly Stream _chunkStream;
+        private readonly FileStream _chunkStream;
         private readonly int _maxSize;
         private IFileRecordFormatter<TKey> _formatter;
 
@@ -41,10 +40,33 @@ namespace FileMerger
             this._formatter.Serialize(this._chunkStream, buffer.Select(p => p.Value));
         }
 
+        public void Merge(IEnumerable<FileChunk<TKey>> otherChunk)
+        {
+            var buffer = new List<IFileRecord<TKey>>(this._maxSize);
+            var queue = new Queue<IFileRecord<TKey>>(otherChunk.Count());
+
+            //foreach (var item in otherChunk.Select(c => c.))
+            {
+                //queue.Enqueue()
+            }
+        }
+
+        public void Save(string path)
+        {
+            this._chunkStream.Flush();
+            this._chunkStream.Close();
+
+            File.Copy(this._chunkStream.Name, path, true);
+        }
+
         public void Dispose()
         {
             if (this._chunkStream != null)
+            {
+                var path = this._chunkStream.Name;
                 this._chunkStream.Dispose();
+                File.Delete(path);
+            }
         }
     }
 }
