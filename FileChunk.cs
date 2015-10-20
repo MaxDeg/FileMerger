@@ -44,6 +44,14 @@ namespace FileMerger
         public void Merge(IEnumerable<FileChunk<TKey>> otherChunk)
         {
             var resultStream = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite);
+
+            this._formatter.Serialize(resultStream, new FileChunkMergeEnumerator<TKey>(this, otherChunk));
+
+            this._chunkStream.Close();
+            File.Delete(this._chunkStream.Name);
+            this._chunkStream = resultStream;
+
+
             var buffer = new List<IFileRecord<TKey>>(this._maxSize);
             var queue = new SortedList<TKey, FileRecordEnumerator>(otherChunk.Count());
 
@@ -76,9 +84,6 @@ namespace FileMerger
                     queue.Add(topItem.Value.Current.Key, topItem.Value);
             }
 
-            this._chunkStream.Close();
-            File.Delete(this._chunkStream.Name);
-            this._chunkStream = resultStream;
         }
 
         public void Save(string path)

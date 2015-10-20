@@ -18,7 +18,7 @@ namespace FileMerger
             : this(data.FirstOrDefault(), data.Skip(1))
         { }
 
-        private FileChunkMergeEnumerator(IEnumerable<IFileRecord<TKey>> head, IEnumerable<IEnumerable<IFileRecord<TKey>>> tail)
+        public FileChunkMergeEnumerator(IEnumerable<IFileRecord<TKey>> head, IEnumerable<IEnumerable<IFileRecord<TKey>>> tail)
         {
             if (head == null)
                 throw new ArgumentNullException("head");
