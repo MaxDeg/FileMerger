@@ -8,6 +8,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 namespace FileMerger
 {
     internal class FileChunk<TKey> : IDisposable, IEnumerable<IFileRecord<TKey>>
+        where TKey : IComparable<TKey>
     {
         private readonly int _maxSize;
         private FileStream _chunkStream;

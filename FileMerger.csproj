@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FileChunk.cs" />
+    <Compile Include="FileChunkMergeEnumerator.cs" />
     <Compile Include="FileMerger.cs" />
     <Compile Include="IFileRecordFormatter.cs" />
     <Compile Include="IFileRecord.cs" />

@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 
 namespace FileMerger
 {
-    public sealed class FileMerger<TKey, TFormatter> where TFormatter : IFileRecordFormatter<TKey>, new()
+    public sealed class FileMerger<TKey, TFormatter> 
+        where TFormatter : IFileRecordFormatter<TKey>, new()
+        where TKey : IComparable<TKey>
     {
         private readonly List<string> _filePaths;
 
