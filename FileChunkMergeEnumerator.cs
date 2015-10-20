@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FileMerger
 {
-    public class FileChunkMergeEnumerator<TKey> : IEnumerator<IFileRecord<TKey>>
+    public class FileChunkMergeEnumerator<TKey> : IEnumerable<IFileRecord<TKey>>, IEnumerator<IFileRecord<TKey>>
         where TKey : IComparable<TKey>
     {
         private IFileRecord<TKey> _current;
@@ -109,5 +109,15 @@ namespace FileMerger
         }
 
         public void Dispose() { }
+
+        public IEnumerator<IFileRecord<TKey>> GetEnumerator()
+        {
+            return this;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return this;
+        }
     }
 }
