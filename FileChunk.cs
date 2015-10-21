@@ -7,144 +7,98 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace FileMerger
 {
-    internal class FileChunk<TKey> : IDisposable, IEnumerable<IFileRecord<TKey>>
-        where TKey : IComparable<TKey>
-    {
-        private readonly int _maxSize;
-        private FileStream _chunkStream;
-        private IFileRecordFormatter<TKey> _formatter;
+	internal class FileChunk<TKey> : IDisposable, IEnumerable<IFileRecord<TKey>>
+		where TKey : IComparable<TKey>
+	{
+		private readonly string _chunkPath;
+		private readonly IRecordSerializer<TKey> _serializer;
 
-        public FileChunk(int maxSize, IFileRecordFormatter<TKey> formatter)
-        {
-            this._chunkStream = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite);
-            this._maxSize = maxSize;
-            this._formatter = formatter;
-        }
+		public FileChunk(IEnumerable<IFileRecord<TKey>> records, IRecordSerializer<TKey> serializer)
+		{
+			this._chunkPath = Path.GetTempFileName();
+			this._serializer = serializer;
 
-        public void Build(Stream stream)
-        {
-            var buffer = new SortedList<TKey, IFileRecord<TKey>>();
+			using (var stream = new FileStream(this._chunkPath, FileMode.Open, FileAccess.Write))
+				this._serializer.Serialize(stream, records);
+		}
 
-            using (var ms = new MemoryStream())
-            {
-                var formatter = new BinaryFormatter();
+		public void Dispose()
+		{
+			//File.Delete(this._chunkPath);
+		}
+		
+		public static IEnumerable<FileChunk<TKey>> CreateChunks<TSerializer>(Stream stream, int maxSize)
+			where TSerializer : IRecordSerializer<TKey>, new()
+		{
+			var serializer = new TSerializer();
+			var buffer = new SortedList<TKey, IFileRecord<TKey>>();
+			var chunks = new List<FileChunk<TKey>>();
 
-                foreach (var record in this._formatter.Deserialize(stream))
-                {
-                    formatter.Serialize(ms, record);
+			using (var ms = new MemoryStream())
+			{
+				var formatter = new BinaryFormatter();
 
-                    if (ms.Length >= this._maxSize) break;
-                    buffer.Add(record.Key, record);
-                }
-            }
+				foreach (var record in serializer.Deserialize(stream))
+				{
+					formatter.Serialize(ms, record);
 
-            this._formatter.Serialize(this._chunkStream, buffer.Select(p => p.Value));
-        }
+					if (ms.Length >= maxSize)
+					{
+						chunks.Add(new FileChunk<TKey>(buffer.Select(p => p.Value), serializer));
 
-        public void Merge(IEnumerable<FileChunk<TKey>> otherChunk)
-        {
-            var resultStream = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite);
+						break;
+					}
 
-            this._formatter.Serialize(resultStream, new FileChunkMergeEnumerator<TKey>(this, otherChunk));
+					buffer.Add(record.Key, record);
+				}
 
-            this._chunkStream.Close();
-            File.Delete(this._chunkStream.Name);
-            this._chunkStream = resultStream;
+				if (buffer.Count > 0)
+					chunks.Add(new FileChunk<TKey>(buffer.Select(p => p.Value), serializer));
+			}
+
+			return chunks;
+		}
 
 
-            var buffer = new List<IFileRecord<TKey>>(this._maxSize);
-            var queue = new SortedList<TKey, FileRecordEnumerator>(otherChunk.Count());
+		public IEnumerator<IFileRecord<TKey>> GetEnumerator()
+		{
+			using (var stream = new FileStream(this._chunkPath, FileMode.Open, FileAccess.Read))
+				return new FileRecordEnumerator(this._serializer.Deserialize(stream));
+		}
 
-            // initial data
-            var enumerator = (FileRecordEnumerator)this.GetEnumerator();
-            if (enumerator.MoveNext())
-                queue.Add(enumerator.Current.Key, enumerator);
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return this.GetEnumerator();
+		}
 
-            foreach (var item in otherChunk)
-            {
-                var itemEnumerator = (FileRecordEnumerator)item.GetEnumerator();
-                if (itemEnumerator.MoveNext())
-                    queue.Add(itemEnumerator.Current.Key, itemEnumerator);
-            }
+		internal class FileRecordEnumerator : IEnumerator<IFileRecord<TKey>>
+		{
+			private IFileRecord<TKey> _current;
+			private IEnumerable<IFileRecord<TKey>> _data;
 
-            while (queue.Any())
-            {
-                var topItem = queue.First();
-                queue.Remove(topItem.Key);
+			public FileRecordEnumerator(IEnumerable<IFileRecord<TKey>> data)
+			{
+				this._current = null;
+				this._data = data.ToList();
+			}
 
-                // insert
-                buffer.Add(topItem.Value.Current);
-                if (buffer.Count == buffer.Capacity)
-                {
-                    this._formatter.Serialize(resultStream, buffer);
-                    buffer.Clear();
-                }
+			public IFileRecord<TKey> Current { get { return this._current; } }
+			object IEnumerator.Current { get { return this._current; } }
 
-                if (topItem.Value.MoveNext())
-                    queue.Add(topItem.Value.Current.Key, topItem.Value);
-            }
+			public bool MoveNext()
+			{
+				this._current = this._data.FirstOrDefault();
+				this._data = this._data.Skip(1);
 
-        }
+				return this._current != null;
+			}
 
-        public void Save(string path)
-        {
-            this._chunkStream.Flush();
-            this._chunkStream.Close();
+			public void Reset()
+			{
+				throw new NotImplementedException();
+			}
 
-            File.Copy(this._chunkStream.Name, path, true);
-        }
-
-        public void Dispose()
-        {
-            if (this._chunkStream != null)
-            {
-                var path = this._chunkStream.Name;
-                this._chunkStream.Dispose();
-                File.Delete(path);
-            }
-        }
-
-        public IEnumerator<IFileRecord<TKey>> GetEnumerator()
-        {
-            this._chunkStream.Seek(0L, SeekOrigin.Begin);
-            return new FileRecordEnumerator(this._formatter.Deserialize(this._chunkStream));
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            this._chunkStream.Seek(0L, SeekOrigin.Begin);
-            return new FileRecordEnumerator(this._formatter.Deserialize(this._chunkStream));
-        }
-
-        internal class FileRecordEnumerator : IEnumerator<IFileRecord<TKey>>
-        {
-            private int _index;
-            private IFileRecord<TKey> _current;
-            private IEnumerable<IFileRecord<TKey>> _data;
-
-            public FileRecordEnumerator(IEnumerable<IFileRecord<TKey>> data)
-            {
-                this._index = -1;
-                this._current = null;
-                this._data = data;
-            }
-
-            public IFileRecord<TKey> Current { get { return this._current; } }
-            object IEnumerator.Current { get { return this._current; } }
-
-            public bool MoveNext()
-            {
-                this._current = this._data.Skip(++this._index).FirstOrDefault();
-
-                return this._current != null;
-            }
-
-            public void Reset()
-            {
-                throw new NotImplementedException();
-            }
-
-            public void Dispose() { }
-        }
-    }
+			public void Dispose() { }
+		}
+	}
 }

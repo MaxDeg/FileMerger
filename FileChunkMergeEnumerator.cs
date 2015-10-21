@@ -7,18 +7,18 @@ using System.Threading.Tasks;
 
 namespace FileMerger
 {
-    public class FileChunkMergeEnumerator<TKey> : IEnumerable<IFileRecord<TKey>>, IEnumerator<IFileRecord<TKey>>
+    internal class FileChunkMergeEnumerator<TKey> : IEnumerable<IFileRecord<TKey>>, IEnumerator<IFileRecord<TKey>>
         where TKey : IComparable<TKey>
     {
         private IFileRecord<TKey> _current;
         private IEnumerator<IFileRecord<TKey>> _left;
         private IEnumerator<IFileRecord<TKey>> _right;
 
-        public FileChunkMergeEnumerator(params IEnumerable<IFileRecord<TKey>>[] data)
+		public FileChunkMergeEnumerator(params FileChunk<TKey>[] data)
             : this(data.FirstOrDefault(), data.Skip(1))
         { }
 
-        public FileChunkMergeEnumerator(IEnumerable<IFileRecord<TKey>> head, IEnumerable<IEnumerable<IFileRecord<TKey>>> tail)
+		public FileChunkMergeEnumerator(FileChunk<TKey> head, IEnumerable<FileChunk<TKey>> tail)
         {
             if (head == null)
                 throw new ArgumentNullException("head");
@@ -38,7 +38,7 @@ namespace FileMerger
 
         public IFileRecord<TKey> Current
         {
-            get { return this._right == null ? this._left.Current : this._current; }
+            get { return this._current; }
         }
 
         object IEnumerator.Current { get { return this.Current; } }
@@ -50,18 +50,12 @@ namespace FileMerger
                 var enumerator = this._right ?? this._left;
                 if (enumerator == null) return false;
 
-                var result = enumerator.MoveNext();
+                if (!enumerator.MoveNext())
+				{
+					this._right = this._left = null;
+					return false;
+				}
                 this._current = enumerator.Current;
-
-                while (enumerator.Current.Key.CompareTo(this._current.Key) == 0)
-                {
-                    this._current = this._current.ResolveConflict(enumerator.Current);
-                    if (!enumerator.MoveNext())
-                    {
-                        enumerator = null;
-                        break;
-                    }
-                }
 
                 return this._current != null;
             }
@@ -90,14 +84,10 @@ namespace FileMerger
             var current = enumerator.Current;
             if (!enumerator.MoveNext()) enumerator = null;
 
-            while (enumerator.Current.Key.CompareTo(current.Key) == 0)
+			while (enumerator != null && enumerator.Current.Key.CompareTo(current.Key) == 0)
             {
                 current = current.ResolveConflict(enumerator.Current);
-                if (!enumerator.MoveNext())
-                {
-                    enumerator = null;
-                    break;
-                }
+                if (!enumerator.MoveNext()) enumerator = null;
             }
 
             return current;

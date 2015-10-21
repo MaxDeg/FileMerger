@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileMerger", "FileMerger.csproj", "{DED14E96-7F56-4219-B75A-7CB80428179A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApplication1", "..\ConsoleApplication1\ConsoleApplication1.csproj", "{BE9D90D6-E8B0-4A47-9A92-74B0AD63CB06}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApplication2", "..\..\visual studio 2013\Projects\ConsoleApplication2\ConsoleApplication2.csproj", "{8A03B73E-F5F1-4DCA-B5B1-F7362DB737A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{DED14E96-7F56-4219-B75A-7CB80428179A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DED14E96-7F56-4219-B75A-7CB80428179A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DED14E96-7F56-4219-B75A-7CB80428179A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BE9D90D6-E8B0-4A47-9A92-74B0AD63CB06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BE9D90D6-E8B0-4A47-9A92-74B0AD63CB06}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BE9D90D6-E8B0-4A47-9A92-74B0AD63CB06}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BE9D90D6-E8B0-4A47-9A92-74B0AD63CB06}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A03B73E-F5F1-4DCA-B5B1-F7362DB737A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A03B73E-F5F1-4DCA-B5B1-F7362DB737A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A03B73E-F5F1-4DCA-B5B1-F7362DB737A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A03B73E-F5F1-4DCA-B5B1-F7362DB737A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
