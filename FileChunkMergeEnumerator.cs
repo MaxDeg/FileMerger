@@ -10,9 +10,9 @@ namespace FileMerger
     internal class FileChunkMergeEnumerator<TKey> : IEnumerable<IFileRecord<TKey>>, IEnumerator<IFileRecord<TKey>>
         where TKey : IComparable<TKey>
     {
-        private IFileRecord<TKey> _current;
-        private IEnumerator<IFileRecord<TKey>> _left;
-        private IEnumerator<IFileRecord<TKey>> _right;
+        private IFileRecord<TKey> current;
+        private IEnumerator<IFileRecord<TKey>> left;
+        private IEnumerator<IFileRecord<TKey>> right;
 
 		public FileChunkMergeEnumerator(params FileChunk<TKey>[] data)
             : this(data.FirstOrDefault(), data.Skip(1))
@@ -23,59 +23,59 @@ namespace FileMerger
             if (head == null)
                 throw new ArgumentNullException("head");
 
-            this._current = null;
-            this._left = head.GetEnumerator();
+            this.current = null;
+            this.left = head.GetEnumerator();
 
             var nextHead = tail.FirstOrDefault();
             if (nextHead != null)
             {
-                this._right = new FileChunkMergeEnumerator<TKey>(nextHead, tail.Skip(1));
+                this.right = new FileChunkMergeEnumerator<TKey>(nextHead, tail.Skip(1));
 
-                this._left.MoveNext();
-                this._right.MoveNext();
+                this.left.MoveNext();
+                this.right.MoveNext();
             }
         }
 
         public IFileRecord<TKey> Current
         {
-            get { return this._current; }
+            get { return this.current; }
         }
 
         object IEnumerator.Current { get { return this.Current; } }
 
         public bool MoveNext()
         {
-            if (this._right == null || this._left == null)
+            if (this.right == null || this.left == null)
             {
-                var enumerator = this._right ?? this._left;
+                var enumerator = this.right ?? this.left;
                 if (enumerator == null) return false;
 
                 if (!enumerator.MoveNext())
 				{
-					this._right = this._left = null;
+					this.right = this.left = null;
 					return false;
 				}
-                this._current = enumerator.Current;
+                this.current = enumerator.Current;
 
-                return this._current != null;
+                return this.current != null;
             }
             else
             {
-                var compareResult = this._right.Current.Key.CompareTo(this._left.Current.Key);
+                var compareResult = this.right.Current.Key.CompareTo(this.left.Current.Key);
                 if (compareResult < 0)
                 {
-                    this._current = GetNext(ref this._right);
+                    this.current = GetNext(ref this.right);
                 }
                 else if (compareResult > 0)
                 {
-                    this._current = GetNext(ref this._left);
+                    this.current = GetNext(ref this.left);
                 }
                 else
                 {
-                    this._current = GetNext(ref this._left).ResolveConflict(GetNext(ref this._right));
+                    this.current = GetNext(ref this.left).ResolveConflict(GetNext(ref this.right));
                 }
 
-                return this._current != null;
+                return this.current != null;
             }
         }
 

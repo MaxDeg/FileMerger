@@ -7,55 +7,68 @@ using System.Threading.Tasks;
 
 namespace FileMerger
 {
-	public sealed class FileMerger<TKey, TSerializer>
-		where TSerializer : IRecordSerializer<TKey>, new()
-		where TKey : IComparable<TKey>
-	{
-		private readonly List<FileChunk<TKey>> _chunks = new List<FileChunk<TKey>>();
+    public sealed class FileMerger<TKey, TSerializer>
+        where TSerializer : IRecordSerializer<TKey>, new()
+        where TKey : IComparable<TKey>
+    {
+        private readonly int chunkSize;
+        private readonly List<FileChunk<TKey>> chunks = new List<FileChunk<TKey>>();
 
-		public FileMerger(params string[] filePaths)
-		{
-			foreach (var path in filePaths)
-			{
-				using (var stream = File.OpenRead(path))
-					this._chunks.AddRange(FileChunk<TKey>.CreateChunks<TSerializer>(stream, 50000));
-			}
-		}
+        public FileMerger(params string[] filePaths)
+            : this(50000, filePaths)
+        { }
 
-		public void Add(string filePath)
-		{
-			this.Add<TSerializer>(filePath);
-		}
+        public FileMerger(int chunkSize, params string[] filePaths)
+        {
+            this.chunkSize = chunkSize;
 
-		public void Add<TOtherSerializer>(string filePath)
-			where TOtherSerializer : IRecordSerializer<TKey>, new()
-		{
-			using (var stream = File.OpenRead(filePath))
-				this._chunks.AddRange(FileChunk<TKey>.CreateChunks<TOtherSerializer>(stream, 50000));
-		}
+            foreach (var path in filePaths)
+            {
+                using (var stream = File.OpenRead(path))
+                    this.chunks.AddRange(FileChunk<TKey>.CreateChunks<TSerializer>(stream, 50000));
+            }
+        }
 
-		/// <summary>
-		/// Start Merging file
-		/// </summary>
-		/// <param name="path">the resulting file</param>
-		public void Merge(string path)
-		{
-			var serializer = new TSerializer();
+        public void Add(string filePath)
+        {
+            this.Add<TSerializer>(filePath);
+        }
 
-			FileChunk<TKey> head = this._chunks.First();
-			var tail = this._chunks.Skip(1).Take(10);
+        public void Add<TOtherSerializer>(string filePath, int? chunkSize = null)
+            where TOtherSerializer : IRecordSerializer<TKey>, new()
+        {
+            this.Add(new TOtherSerializer(), filePath);
+        }
 
-			do
-			{
-				head = new FileChunk<TKey>(new FileChunkMergeEnumerator<TKey>(head, tail), serializer);
-				tail = this._chunks.Skip(10);
-			}
-			while (tail.Count() > 0);
+        public void Add<TOtherSerializer>(TOtherSerializer serializer, string filePath, int? chunkSize = null)
+            where TOtherSerializer : IRecordSerializer<TKey>
+        {
+            using (var stream = File.OpenRead(filePath))
+                this.chunks.AddRange(FileChunk<TKey>.CreateChunks(serializer, stream, chunkSize ?? this.chunkSize));
+        }
 
-			using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write))
-			{
-				serializer.Serialize(stream, head);
-			}
-		}
-	}
+        /// <summary>
+        /// Start Merging file
+        /// </summary>
+        /// <param name="path">the resulting file</param>
+        public void Merge(string path)
+        {
+            var serializer = new TSerializer();
+
+            FileChunk<TKey> head = this.chunks.First();
+            var tail = this.chunks.Skip(1).Take(10);
+
+            do
+            {
+                head = new FileChunk<TKey>(new FileChunkMergeEnumerator<TKey>(head, tail), serializer);
+                tail = this.chunks.Skip(10);
+            }
+            while (tail.Count() > 0);
+
+            using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write))
+            {
+                serializer.Serialize(stream, head);
+            }
+        }
+    }
 }
