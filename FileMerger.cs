@@ -15,7 +15,7 @@ namespace FileMerger
         private readonly List<FileChunk<TKey>> chunks = new List<FileChunk<TKey>>();
 
         public FileMerger(params string[] filePaths)
-            : this(50000, filePaths)
+            : this(5000000, filePaths)
         { }
 
         public FileMerger(int chunkSize, params string[] filePaths)
@@ -55,20 +55,9 @@ namespace FileMerger
         {
             var serializer = new TSerializer();
 
-            FileChunk<TKey> head = this.chunks.First();
-            var tail = this.chunks.Skip(1).Take(10);
-
-            do
-            {
-                head = new FileChunk<TKey>(new FileChunkMergeEnumerator<TKey>(head, tail), serializer);
-                tail = this.chunks.Skip(10);
-            }
-            while (tail.Count() > 0);
-
-            using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write))
-            {
-                serializer.Serialize(stream, head);
-            }
+            using (var chunk = new FileChunk<TKey>(new FileChunkMergeEnumerator<TKey>(this.chunks.First(), this.chunks.Skip(1)), serializer))
+            using (var stream = new BufferedStream(new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write)))
+                serializer.Serialize(stream, chunk);
         }
     }
 }

@@ -51,8 +51,10 @@ namespace FileMerger
                 if (enumerator == null) return false;
 
                 if (!enumerator.MoveNext())
-				{
-					this.right = this.left = null;
+                {
+                    enumerator.Dispose();
+
+                    this.right = this.left = null;
 					return false;
 				}
                 this.current = enumerator.Current;
@@ -82,12 +84,20 @@ namespace FileMerger
         private static IFileRecord<TKey> GetNext(ref IEnumerator<IFileRecord<TKey>> enumerator)
         {
             var current = enumerator.Current;
-            if (!enumerator.MoveNext()) enumerator = null;
+            if (!enumerator.MoveNext())
+            {
+                enumerator.Dispose();
+                enumerator = null;
+            }
 
-			while (enumerator != null && enumerator.Current.Key.CompareTo(current.Key) == 0)
+            while (enumerator != null && enumerator.Current.Key.CompareTo(current.Key) == 0)
             {
                 current = current.ResolveConflict(enumerator.Current);
-                if (!enumerator.MoveNext()) enumerator = null;
+                if (!enumerator.MoveNext())
+                {
+                    enumerator.Dispose();
+                    enumerator = null;
+                }
             }
 
             return current;
@@ -98,7 +108,11 @@ namespace FileMerger
             throw new NotImplementedException();
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+            if (this.right != null) this.right.Dispose();
+            if (this.left != null) this.left.Dispose();
+        }
 
         public IEnumerator<IFileRecord<TKey>> GetEnumerator()
         {

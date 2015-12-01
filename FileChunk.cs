@@ -45,6 +45,7 @@ namespace FileMerger
                     {
                         chunks.Add(new FileChunk<TKey>(buffer.Select(p => p.Value), serializer));
                         buffer.Clear();
+                        ms.SetLength(0L);
                     }
 
                     buffer.Add(record.Key, record);
@@ -65,10 +66,9 @@ namespace FileMerger
 
 
 		public IEnumerator<IFileRecord<TKey>> GetEnumerator()
-		{
-			using (var stream = new FileStream(this.chunkPath, FileMode.Open, FileAccess.Read))
-				return new FileRecordEnumerator(this.serializer.Deserialize(stream));
-		}
+        {
+            return new FileRecordEnumerator(this.serializer, this.chunkPath);
+        }
 
 		IEnumerator IEnumerable.GetEnumerator()
 		{
@@ -76,33 +76,34 @@ namespace FileMerger
 		}
 
 		internal class FileRecordEnumerator : IEnumerator<IFileRecord<TKey>>
-		{
-			private IFileRecord<TKey> current;
-			private IEnumerable<IFileRecord<TKey>> data;
+        {
+            private Stream stream;
+            private IEnumerator<IFileRecord<TKey>> data;
 
-			public FileRecordEnumerator(IEnumerable<IFileRecord<TKey>> data)
-			{
-				this.current = null;
-				this.data = data.ToList();
-			}
+            public FileRecordEnumerator(IRecordSerializer<TKey> serializer, string path)
+            {
+                this.stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+                this.data = serializer.Deserialize(stream).GetEnumerator();
+            }
 
-			public IFileRecord<TKey> Current { get { return this.current; } }
-			object IEnumerator.Current { get { return this.current; } }
+            public IFileRecord<TKey> Current { get { return this.data.Current; } }
+            object IEnumerator.Current { get { return this.data.Current; } }
 
-			public bool MoveNext()
-			{
-				this.current = this.data.FirstOrDefault();
-				this.data = this.data.Skip(1);
+            public bool MoveNext()
+            {
+                return this.data.MoveNext();
+            }
 
-				return this.current != null;
-			}
+            public void Reset()
+            {
+                this.data.Reset();
+            }
 
-			public void Reset()
-			{
-				throw new NotImplementedException();
-			}
-
-			public void Dispose() { }
-		}
+            public void Dispose()
+            {
+                this.stream.Dispose();
+                this.data.Dispose();
+            }
+        }
 	}
 }
