@@ -44,8 +44,7 @@ namespace FileMerger
                     if (ms.Length >= maxSize)
                     {
                         chunks.Add(new FileChunk<TKey>(buffer.Select(p => p.Value), serializer));
-
-                        break;
+                        buffer.Clear();
                     }
 
                     buffer.Add(record.Key, record);
