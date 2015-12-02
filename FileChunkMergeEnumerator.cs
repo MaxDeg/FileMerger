@@ -10,15 +10,18 @@ namespace FileMerger
     internal class FileChunkMergeEnumerator<TKey> : IEnumerable<IFileRecord<TKey>>, IEnumerator<IFileRecord<TKey>>
         where TKey : IComparable<TKey>
     {
-        private IFileRecord<TKey> current;
-        private IEnumerator<IFileRecord<TKey>> left;
-        private IEnumerator<IFileRecord<TKey>> right;
+        private readonly IEnumerator<IFileRecord<TKey>> left;
+        private readonly IEnumerator<IFileRecord<TKey>> right;
 
-		public FileChunkMergeEnumerator(params FileChunk<TKey>[] data)
+        private IFileRecord<TKey> current;
+        private Func<bool> moveLeft;
+        private Func<bool> moveRight;
+
+        public FileChunkMergeEnumerator(params FileChunk<TKey>[] data)
             : this(data.FirstOrDefault(), data.Skip(1))
         { }
 
-		public FileChunkMergeEnumerator(FileChunk<TKey> head, IEnumerable<FileChunk<TKey>> tail)
+        public FileChunkMergeEnumerator(FileChunk<TKey> head, IEnumerable<FileChunk<TKey>> tail)
         {
             if (head == null)
                 throw new ArgumentNullException("head");
@@ -26,13 +29,14 @@ namespace FileMerger
             this.current = null;
             this.left = head.GetEnumerator();
 
+            this.moveLeft = () => this.left.MoveNext();
+            this.moveRight = () => false;
+
             var nextHead = tail.FirstOrDefault();
             if (nextHead != null)
             {
                 this.right = new FileChunkMergeEnumerator<TKey>(nextHead, tail.Skip(1));
-
-                this.left.MoveNext();
-                this.right.MoveNext();
+                this.moveRight = () => this.right.MoveNext();
             }
         }
 
@@ -45,62 +49,51 @@ namespace FileMerger
 
         public bool MoveNext()
         {
-            if (this.right == null || this.left == null)
+            // Nothing more in the left IEnumerable
+            if (!this.moveLeft())
             {
-                var enumerator = this.right ?? this.left;
-                if (enumerator == null) return false;
-
-                if (!enumerator.MoveNext())
+                if (this.moveRight())
                 {
-                    enumerator.Dispose();
-
-                    this.right = this.left = null;
-					return false;
-				}
-                this.current = enumerator.Current;
-
-                return this.current != null;
+                    this.current = this.right.Current;
+                    return true;
+                }
+                else // if right is also empty this is the end of the IEnumerable
+                    return false;
+            }
+            // Nothing more in the right IEnumerable
+            else if (!this.moveRight())
+            {
+                if (this.moveLeft())
+                {
+                    this.current = this.left.Current;
+                    return true;
+                }
+                else// if left is also empty this is the end of the IEnumerable
+                    return false;
             }
             else
             {
+                // reset the delegates
+                this.moveLeft = () => this.left.MoveNext();
+                this.moveRight = () => this.right.MoveNext();
+
+                // compare the Key
                 var compareResult = this.right.Current.Key.CompareTo(this.left.Current.Key);
                 if (compareResult < 0)
                 {
-                    this.current = GetNext(ref this.right);
+                    this.moveLeft = () => true; // left is not the good one so we don't move the the next
+                    this.current = this.right.Current;
                 }
                 else if (compareResult > 0)
                 {
-                    this.current = GetNext(ref this.left);
+                    this.moveRight = () => true; // right is not the good one so we don't move the the next
+                    this.current = this.left.Current;
                 }
                 else
-                {
-                    this.current = GetNext(ref this.left).ResolveConflict(GetNext(ref this.right));
-                }
+                    this.current = this.left.Current.ResolveConflict(this.right.Current);
 
-                return this.current != null;
+                return true;
             }
-        }
-
-        private static IFileRecord<TKey> GetNext(ref IEnumerator<IFileRecord<TKey>> enumerator)
-        {
-            var current = enumerator.Current;
-            if (!enumerator.MoveNext())
-            {
-                enumerator.Dispose();
-                enumerator = null;
-            }
-
-            while (enumerator != null && enumerator.Current.Key.CompareTo(current.Key) == 0)
-            {
-                current = current.ResolveConflict(enumerator.Current);
-                if (!enumerator.MoveNext())
-                {
-                    enumerator.Dispose();
-                    enumerator = null;
-                }
-            }
-
-            return current;
         }
 
         public void Reset()
