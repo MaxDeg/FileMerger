@@ -49,35 +49,15 @@ namespace FileMerger
 
         public bool MoveNext()
         {
-            // Nothing more in the left IEnumerable
-            if (!this.moveLeft())
-            {
-                if (this.moveRight())
-                {
-                    this.current = this.right.Current;
-                    return true;
-                }
-                else // if right is also empty this is the end of the IEnumerable
-                    return false;
-            }
-            // Nothing more in the right IEnumerable
-            else if (!this.moveRight())
-            {
-                if (this.moveLeft())
-                {
-                    this.current = this.left.Current;
-                    return true;
-                }
-                else// if left is also empty this is the end of the IEnumerable
-                    return false;
-            }
-            else
+            var hasMoreLeft = this.moveLeft();
+            var hasMoreRight = this.moveRight();
+
+            if (hasMoreLeft && hasMoreRight)
             {
                 // reset the delegates
                 this.moveLeft = () => this.left.MoveNext();
                 this.moveRight = () => this.right.MoveNext();
 
-                // compare the Key
                 var compareResult = this.right.Current.Key.CompareTo(this.left.Current.Key);
                 if (compareResult < 0)
                 {
@@ -91,9 +71,19 @@ namespace FileMerger
                 }
                 else
                     this.current = this.left.Current.ResolveConflict(this.right.Current);
-
-                return true;
             }
+            else if (hasMoreLeft)
+            {
+                this.moveLeft = () => this.left.MoveNext();
+                this.current = this.left.Current;
+            }
+            else if (hasMoreRight)
+            {
+                this.moveRight = () => this.right.MoveNext();
+                this.current = this.right.Current;
+            }
+
+            return hasMoreLeft || hasMoreRight;
         }
 
         public void Reset()
